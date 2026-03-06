@@ -11,7 +11,8 @@
         href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <style>
-        :root {
+        :root,
+        [data-theme="dark"] {
             --bg-primary: #0a0a0f;
             --bg-secondary: #111118;
             --bg-card: #161620;
@@ -32,6 +33,34 @@
             --radius: 16px;
             --radius-sm: 10px;
             --radius-xs: 6px;
+            --btn-text: #0a0a0f;
+            --delete-bg: rgba(255, 60, 60, 0.15);
+            --delete-border: rgba(255, 60, 60, 0.2);
+            --delete-hover: rgba(255, 60, 60, 0.35);
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #e8f5e9;
+            --bg-secondary: #c8e6c9;
+            --bg-card: #ffffff;
+            --bg-card-hover: #f1f8e9;
+            --bg-input: #f5f5f5;
+            --accent-1: #1b5e20;
+            --accent-2: #2e7d32;
+            --accent-3: #a5d6a7;
+            --accent-gradient: linear-gradient(135deg, #2e7d32, #43a047);
+            --text-primary: #1a1a1a;
+            --text-secondary: #4a4a4a;
+            --text-muted: #888888;
+            --border: rgba(0, 0, 0, 0.08);
+            --glass: rgba(46, 125, 50, 0.04);
+            --glass-border: rgba(46, 125, 50, 0.15);
+            --shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            --shadow-hover: 0 8px 30px rgba(46, 125, 50, 0.12);
+            --btn-text: #ffffff;
+            --delete-bg: rgba(255, 60, 60, 0.08);
+            --delete-border: rgba(255, 60, 60, 0.15);
+            --delete-hover: rgba(255, 60, 60, 0.2);
         }
 
         * {
@@ -151,7 +180,7 @@
 
         .btn-primary {
             background: var(--accent-gradient);
-            color: #0a0a0f;
+            color: var(--btn-text);
             box-shadow: 0 4px 15px rgba(57, 255, 20, 0.25);
         }
 
@@ -332,7 +361,7 @@
 
         .week-tab.active {
             background: var(--accent-gradient);
-            color: #0a0a0f;
+            color: var(--btn-text);
             font-weight: 600;
             border-color: transparent;
             box-shadow: 0 2px 12px rgba(57, 255, 20, 0.2);
@@ -579,8 +608,8 @@
             position: absolute;
             top: 12px;
             right: 12px;
-            background: rgba(255, 60, 60, 0.15);
-            border: 1px solid rgba(255, 60, 60, 0.2);
+            background: var(--delete-bg);
+            border: 1px solid var(--delete-border);
             color: #ff6b6b;
             cursor: pointer;
             font-size: 13px;
@@ -600,7 +629,7 @@
         }
 
         .post-delete:hover {
-            background: rgba(255, 60, 60, 0.35);
+            background: var(--delete-hover);
             color: #ff4444;
             transform: scale(1.1);
         }
@@ -732,7 +761,7 @@
             border: none;
             border-radius: 20px;
             background: var(--accent-gradient);
-            color: #0a0a0f;
+            color: var(--btn-text);
             font-size: 12px;
             font-weight: 600;
             cursor: pointer;
@@ -987,7 +1016,7 @@
             padding: 12px 28px;
             border-radius: 30px;
             background: var(--accent-gradient);
-            color: #0a0a0f;
+            color: var(--btn-text);
             font-size: 14px;
             font-weight: 600;
             z-index: 1000;
@@ -1080,6 +1109,8 @@
                 </div>
             </div>
             <div class="header-actions">
+                <button class="btn btn-ghost" onclick="toggleTheme()" id="themeToggle" title="테마 변경"
+                    style="font-size:18px;padding:8px 12px">🌙</button>
                 <button class="btn btn-ghost" onclick="openClassSettings()">📚 클래스 관리</button>
                 <button class="btn btn-primary" onclick="openNewPost()">✏️ 새 글 작성</button>
                 <div class="user-switcher">
@@ -1632,6 +1663,23 @@
         // ══════════════════════════════════════════════
         function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
         function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+
+        // Theme toggle
+        function toggleTheme() {
+            var html = document.documentElement;
+            var current = html.getAttribute('data-theme') || 'dark';
+            var next = current === 'dark' ? 'light' : 'dark';
+            html.setAttribute('data-theme', next);
+            localStorage.setItem('frontier_theme', next);
+            document.getElementById('themeToggle').textContent = next === 'dark' ? '🌙' : '☀️';
+        }
+        // Init theme on load
+        (function () {
+            var saved = localStorage.getItem('frontier_theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', saved);
+            var btn = document.getElementById('themeToggle');
+            if (btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
+        })();
         function showToast(msg) { var t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(function () { t.classList.remove('show'); }, 2500); }
         function escapeHtml(str) { if (!str) return ''; var d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
         function escapeAttr(str) { return str ? str.replace(/"/g, '&quot;').replace(/</g, '&lt;') : ''; }
