@@ -633,6 +633,59 @@ def update_graph_node(node_id: int, body: dict):
         return {"ok": True}
 
 
+@app.post("/api/graph/nodes")
+def create_graph_node(body: dict):
+    with get_db() as db:
+        label = body.get('label', 'New Node')
+        desc = body.get('description', '')
+        cat = body.get('category', 'Phase 1')
+        color = body.get('color', '#39ff14')
+        x = body.get('x', 400)
+        y = body.get('y', 300)
+        if USE_PG:
+            c = db.cursor()
+            c.execute("INSERT INTO graph_nodes(label,description,category,color,x,y) VALUES(%s,%s,%s,%s,%s,%s) RETURNING id",
+                      (label, desc, cat, color, x, y))
+            nid = c.fetchone()[0]
+        else:
+            _exec(db, "INSERT INTO graph_nodes(label,description,category,color,x,y) VALUES(?,?,?,?,?,?)",
+                  (label, desc, cat, color, x, y))
+            nid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return {"ok": True, "id": nid}
+
+
+@app.delete("/api/graph/nodes/{node_id}")
+def delete_graph_node(node_id: int):
+    with get_db() as db:
+        _exec(db, "DELETE FROM graph_edges WHERE source_id=? OR target_id=?", (node_id, node_id))
+        _exec(db, "DELETE FROM graph_nodes WHERE id=?", (node_id,))
+        return {"ok": True}
+
+
+@app.post("/api/graph/edges")
+def create_graph_edge(body: dict):
+    with get_db() as db:
+        src = body.get('source_id')
+        tgt = body.get('target_id')
+        if not src or not tgt:
+            raise HTTPException(400, "source_id and target_id required")
+        if USE_PG:
+            c = db.cursor()
+            c.execute("INSERT INTO graph_edges(source_id,target_id) VALUES(%s,%s) RETURNING id", (src, tgt))
+            eid = c.fetchone()[0]
+        else:
+            _exec(db, "INSERT INTO graph_edges(source_id,target_id) VALUES(?,?)", (src, tgt))
+            eid = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        return {"ok": True, "id": eid}
+
+
+@app.delete("/api/graph/edges/{edge_id}")
+def delete_graph_edge(edge_id: int):
+    with get_db() as db:
+        _exec(db, "DELETE FROM graph_edges WHERE id=?", (edge_id,))
+        return {"ok": True}
+
+
 # ── Serve Frontend ───────────────────────────────
 @app.get("/", response_class=HTMLResponse)
 def serve_frontend():

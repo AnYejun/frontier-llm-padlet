@@ -1242,7 +1242,19 @@
                     <div id="tooltipCategory" style="font-size:10px;color:var(--text-muted);margin-top:6px"></div>
                 </div>
             </div>
+            <!-- Toolbar -->
+            <div
+                style="position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:20;display:flex;gap:8px;background:var(--bg-card);border:1px solid var(--glass-border);border-radius:30px;padding:6px 16px;box-shadow:var(--shadow)">
+                <button class="btn btn-ghost" onclick="addGraphNode()" style="font-size:12px;padding:6px 12px">➕ 노드
+                    추가</button>
+                <button class="btn btn-ghost" id="edgeModeBtn" onclick="toggleEdgeMode()"
+                    style="font-size:12px;padding:6px 12px">🔗 간선 연결</button>
+                <span id="graphStatus"
+                    style="font-size:11px;color:var(--text-muted);display:flex;align-items:center;padding:0 8px">노드를
+                    더블클릭하여 편집</span>
+            </div>
         </div>
+    </div>
     </div>
 
     <!-- Rename Modal -->
@@ -1699,14 +1711,37 @@
                 };
 
                 // Drag
+                var dragStartX, dragStartY;
                 div.onmousedown = function (e) {
                     if (e.button !== 0) return;
                     e.preventDefault();
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
                     graphDragging = node;
                     graphOffset.x = e.clientX - pos.x;
                     graphOffset.y = e.clientY - pos.y;
                     div.style.cursor = 'grabbing';
                     document.getElementById('graphTooltip').style.display = 'none';
+                };
+
+                // Click (for edge mode) — only if not dragged
+                div.onclick = function (e) {
+                    var dx = Math.abs(e.clientX - dragStartX);
+                    var dy = Math.abs(e.clientY - dragStartY);
+                    if (dx > 5 || dy > 5) return; // was a drag, not a click
+                    if (edgeMode) handleEdgeClick(node);
+                };
+
+                // Double-click to edit
+                div.ondblclick = function (e) {
+                    e.preventDefault();
+                    editGraphNode(node);
+                };
+
+                // Right-click to delete
+                div.oncontextmenu = function (e) {
+                    e.preventDefault();
+                    deleteGraphNode(node);
                 };
 
                 container.appendChild(div);
@@ -1762,6 +1797,102 @@
                 }
             };
             container.onmouseleave = container.onmouseup;
+        }
+
+        var edgeMode = false;
+        var edgeSource = null;
+
+        async function addGraphNode() {
+            var label = prompt('노드 이름을 입력하세요:');
+            if (!label || !label.trim()) return;
+            var cat = prompt('카테고리 (Phase 1 / Phase 2 / Phase 3):', 'Phase 1') || 'Phase 1';
+            var colorMap = { 'Phase 1': '#39ff14', 'Phase 2': '#00e5ff', 'Phase 3': '#ff6e40' };
+            var color = colorMap[cat] || '#39ff14';
+            try {
+                var res = await api('POST', '/api/graph/nodes', {
+                    label: label.trim(), category: cat, color: color,
+                    description: '', x: 400 + Math.random() * 100, y: 300 + Math.random() * 100
+                });
+                graphData = await api('GET', '/api/graph');
+                renderGraph();
+                showToast('노드 추가: ' + label.trim());
+            } catch (e) { showToast('오류: ' + e.message); }
+        }
+
+        function toggleEdgeMode() {
+            edgeMode = !edgeMode;
+            edgeSource = null;
+            var btn = document.getElementById('edgeModeBtn');
+            var status = document.getElementById('graphStatus');
+            if (edgeMode) {
+                btn.style.background = 'var(--accent-1)';
+                btn.style.color = '#000';
+                status.textContent = '첫 번째 노드를 클릭하세요';
+            } else {
+                btn.style.background = '';
+                btn.style.color = '';
+                status.textContent = '노드를 더블클릭하여 편집';
+            }
+        }
+
+        function handleEdgeClick(node) {
+            var status = document.getElementById('graphStatus');
+            if (!edgeSource) {
+                edgeSource = node;
+                status.textContent = '두 번째 노드를 클릭하세요 (' + node.label + ' →)';
+                // Highlight source node
+                var el = document.querySelector('[data-node-id="' + node.id + '"]');
+                if (el) el.style.border = '3px solid #ffea00';
+            } else {
+                if (edgeSource.id === node.id) { showToast('같은 노드입니다'); return; }
+                // Check duplicate
+                var exists = graphData.edges.some(function (e) {
+                    return (e.source_id === edgeSource.id && e.target_id === node.id);
+                });
+                if (exists) { showToast('이미 연결되어 있습니다'); edgeSource = null; status.textContent = '첫 번째 노드를 클릭하세요'; return; }
+                api('POST', '/api/graph/edges', { source_id: edgeSource.id, target_id: node.id })
+                    .then(function () {
+                        return api('GET', '/api/graph');
+                    }).then(function (data) {
+                        graphData = data;
+                        renderGraph();
+                        showToast(edgeSource.label + ' → ' + node.label + ' 연결!');
+                    });
+                edgeSource = null;
+                status.textContent = '첫 번째 노드를 클릭하세요';
+            }
+        }
+
+        function editGraphNode(node) {
+            var label = prompt('노드 이름:', node.label);
+            if (label === null) return;
+            var desc = prompt('설명:', node.description);
+            if (desc === null) desc = node.description;
+            var cat = prompt('카테고리 (Phase 1 / Phase 2 / Phase 3):', node.category);
+            if (cat === null) cat = node.category;
+            var colorMap = { 'Phase 1': '#39ff14', 'Phase 2': '#00e5ff', 'Phase 3': '#ff6e40' };
+            var body = { label: label.trim() || node.label, description: desc };
+            if (cat !== node.category) {
+                body.category = cat;
+                body.color = colorMap[cat] || node.color;
+            }
+            api('PUT', '/api/graph/nodes/' + node.id, body).then(function () {
+                return api('GET', '/api/graph');
+            }).then(function (data) {
+                graphData = data;
+                renderGraph();
+                showToast('노드 수정됨');
+            });
+        }
+
+        async function deleteGraphNode(node) {
+            if (!confirm('"' + node.label + '" 노드를 삭제하시겠습니까?\n(연결된 간선도 함께 삭제됩니다)')) return;
+            try {
+                await api('DELETE', '/api/graph/nodes/' + node.id);
+                graphData = await api('GET', '/api/graph');
+                renderGraph();
+                showToast('노드 삭제됨');
+            } catch (e) { showToast('오류: ' + e.message); }
         }
 
         // ══════════════════════════════════════════════
