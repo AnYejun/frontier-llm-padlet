@@ -1449,8 +1449,9 @@
                 columns.innerHTML = w.sections.map(function (sec) {
                     var sectionPosts = w.posts.filter(function (p) { return p.section === sec; });
                     return '<div class="section-column"><h3><span class="col-emoji">' + sec.split(' ')[0] + '</span>' + sec.split(' ').slice(1).join(' ') + '</h3>' +
+                        '<div class="new-post-card" onclick="openNewPost(\'' + sec.replace(/'/g, "\\'") + '\')" style="min-height:36px;padding:8px;font-size:14px"><span>+</span></div>' +
                         sectionPosts.map(function (p, i) { return renderPostCard(p, i); }).join('') +
-                        '<div class="new-post-card" onclick="openNewPost(\'' + sec.replace(/'/g, "\\'") + '\')" style="min-height:60px;padding:14px"><span style="font-size:18px">+</span></div></div>';
+                        '</div>';
                 }).join('');
             }
         }
