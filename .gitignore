@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+padlet.db
+*.db-journal
+*.db-wal
+.venv/

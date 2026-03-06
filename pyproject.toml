@@ -1,0 +1,10 @@
+[project]
+name = "frontier-llm-padlet"
+version = "1.0.0"
+description = "Frontier LLM 스터디 세션 보드"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "aiofiles",
+]
