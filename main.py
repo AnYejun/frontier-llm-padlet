@@ -151,6 +151,15 @@ CREATE TABLE IF NOT EXISTS reactions (
     post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
     emoji TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS curriculum (
+    id SERIAL PRIMARY KEY,
+    phase INTEGER NOT NULL DEFAULT 0,
+    phase_title TEXT NOT NULL DEFAULT '',
+    phase_subtitle TEXT NOT NULL DEFAULT '',
+    phase_color TEXT NOT NULL DEFAULT '#39ff14',
+    items TEXT NOT NULL DEFAULT '[]',
+    sort_order INTEGER NOT NULL DEFAULT 0
+);
 """
 
 SQLITE_SCHEMA = """
@@ -193,6 +202,15 @@ CREATE TABLE IF NOT EXISTS reactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
     emoji TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS curriculum (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phase INTEGER NOT NULL DEFAULT 0,
+    phase_title TEXT NOT NULL DEFAULT '',
+    phase_subtitle TEXT NOT NULL DEFAULT '',
+    phase_color TEXT NOT NULL DEFAULT '#39ff14',
+    items TEXT NOT NULL DEFAULT '[]',
+    sort_order INTEGER NOT NULL DEFAULT 0
 );
 """
 
@@ -273,6 +291,33 @@ def init_db():
                 _exec(db, "INSERT INTO posts(week_id, member_id, section, title, content, tags, color, created_at) VALUES(?,?,?,?,?,?,?,?)",
                       (week_id, 0, sec, title, content, tags, color, now))
 
+        # Seed curriculum
+        cur = _exec(db, "SELECT COUNT(*) FROM curriculum")
+        count = cur.fetchone()[0]
+        if count == 0:
+            phases = [
+                (1, 'Phase 1', 'The Physics: Engine Architecture & Control', '#39ff14',
+                 json.dumps([
+                     'UAT와 매니폴드 가설을 통해 LLM이 입력을 가치 있는 출력으로 변환하는 "강력한 함수"임을 이해합니다.',
+                     'DeepSeek-V3/R1 등 최신 MoE 구조를 분석하며 현재 인공지능이 도달한 지능의 한계치를 탐구합니다.',
+                     '블랙박스 상태인 모델 내부의 작동 원리를 파헤치고, 정교하게 제어하기 위한 최신 연구 방법론을 학습합니다.'
+                 ], ensure_ascii=False), 0),
+                (2, 'Phase 2', 'The System: Pipeline & Interface Engineering', '#00e5ff',
+                 json.dumps([
+                     'GraphRAG와 이벤트 기반 파이프라인을 통해 LLM의 추론 성능을 극대화하는 데이터 맥락(Context) 설계를 배웁니다.',
+                     'MCP와 IoT 기술을 활용하여 LLM의 출력을 실제 소프트웨어와 현실 세계의 액션으로 연결하는 표준 인터페이스를 구축합니다.',
+                     '단순 챗봇을 넘어 스스로 사고하고 도구를 사용하는 지능형 시스템의 엔진으로서 LLM을 활용하는 전략을 습득합니다.'
+                 ], ensure_ascii=False), 1),
+                (3, 'Phase 3', 'The Build: Frontier Agent with Antigravity', '#ff6e40',
+                 json.dumps([
+                     'Antigravity와 Claude Code 등 최신 툴을 활용하여 실제 문제를 해결하는 자율형 에이전트(Autonomous Agent)를 직접 개발합니다.',
+                     '인간의 데이터가 AI를 거쳐 가치 있는 액션으로 변하는 과정을 통해 공학적 완성도와 철학적 통찰을 동시에 추구합니다.',
+                     '개인 프로젝트를 넘어 논문 투고나 실제 프로젝트 등 실제 산업과 학계에서 영향력을 발휘할 수 있는 결과물을 도출합니다.'
+                 ], ensure_ascii=False), 2),
+            ]
+            for phase, title, subtitle, color, items, sort in phases:
+                _exec(db, "INSERT INTO curriculum(phase, phase_title, phase_subtitle, phase_color, items, sort_order) VALUES(?,?,?,?,?,?)",
+                      (phase, title, subtitle, color, items, sort))
 
 # ── Pydantic Models ──────────────────────────────
 class MemberRename(BaseModel):
@@ -302,6 +347,11 @@ class CommentCreate(BaseModel):
 class ReactionCreate(BaseModel):
     emoji: str
 
+class CurriculumUpdate(BaseModel):
+    phase_title: Optional[str] = None
+    phase_subtitle: Optional[str] = None
+    phase_color: Optional[str] = None
+    items: Optional[list[str]] = None
 
 # ── API: Members ─────────────────────────────────
 @app.get("/api/members")
@@ -469,6 +519,34 @@ def add_comment(post_id: int, body: CommentCreate):
 def delete_comment(comment_id: int):
     with get_db() as db:
         _exec(db, "DELETE FROM comments WHERE id=?", (comment_id,))
+        return {"ok": True}
+
+
+# ── API: Curriculum ──────────────────────────────
+@app.get("/api/curriculum")
+def list_curriculum():
+    with get_db() as db:
+        cur = _exec(db, "SELECT * FROM curriculum ORDER BY sort_order")
+        rows = _fetchall(cur)
+        for r in rows:
+            r['items'] = json.loads(r['items'])
+        return rows
+
+
+@app.put("/api/curriculum/{phase_id}")
+def update_curriculum(phase_id: int, body: CurriculumUpdate):
+    with get_db() as db:
+        cur = _exec(db, "SELECT * FROM curriculum WHERE id=?", (phase_id,))
+        if not _fetchone(cur):
+            raise HTTPException(404, "Phase not found")
+        if body.phase_title is not None:
+            _exec(db, "UPDATE curriculum SET phase_title=? WHERE id=?", (body.phase_title, phase_id))
+        if body.phase_subtitle is not None:
+            _exec(db, "UPDATE curriculum SET phase_subtitle=? WHERE id=?", (body.phase_subtitle, phase_id))
+        if body.phase_color is not None:
+            _exec(db, "UPDATE curriculum SET phase_color=? WHERE id=?", (body.phase_color, phase_id))
+        if body.items is not None:
+            _exec(db, "UPDATE curriculum SET items=? WHERE id=?", (json.dumps(body.items, ensure_ascii=False), phase_id))
         return {"ok": True}
 
 

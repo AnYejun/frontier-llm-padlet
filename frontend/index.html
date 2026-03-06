@@ -1121,6 +1121,7 @@
             <div class="header-actions">
                 <button class="btn btn-ghost" onclick="toggleTheme()" id="themeToggle" title="테마 변경"
                     style="font-size:18px;padding:8px 12px">🌙</button>
+                <button class="btn btn-ghost" onclick="openCurriculum()">📊 커리큐럼</button>
                 <button class="btn btn-ghost" onclick="openClassSettings()">📚 클래스 관리</button>
                 <button class="btn btn-primary" onclick="openNewPost()">✏️ 새 글 작성</button>
                 <div class="user-switcher">
@@ -1205,6 +1206,19 @@
                 <div class="modal-actions">
                     <button class="btn btn-ghost" onclick="closeModal('classSettingsModal')">닫기</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Curriculum Modal -->
+    <div class="modal-overlay" id="curriculumModal">
+        <div class="modal" style="max-width:900px">
+            <div class="modal-header">
+                <h3>📊 Frontier LLM 커리큐럼 로드맵</h3>
+                <button class="modal-close" onclick="closeModal('curriculumModal')">✕</button>
+            </div>
+            <div class="modal-body" style="padding:24px">
+                <div id="curriculumContainer" style="display:flex;flex-direction:column;gap:0"></div>
             </div>
         </div>
     </div>
@@ -1569,6 +1583,94 @@
             var w = currentWeek();
             try { await api('PUT', '/api/weeks/' + w.id, { description: val }); }
             catch (e) { showToast('오류: ' + e.message); }
+        }
+
+        // ══════════════════════════════════════════════
+        //  CURRICULUM ROADMAP
+        // ══════════════════════════════════════════════
+        var curriculumData = [];
+
+        async function openCurriculum() {
+            try {
+                curriculumData = await api('GET', '/api/curriculum');
+            } catch (e) { curriculumData = []; }
+            renderCurriculum();
+            openModal('curriculumModal');
+        }
+
+        function renderCurriculum() {
+            var container = document.getElementById('curriculumContainer');
+            if (!curriculumData.length) {
+                container.innerHTML = '<p style="color:var(--text-muted)">커리큘럼이 없습니다.</p>';
+                return;
+            }
+            container.innerHTML = curriculumData.map(function (phase, idx) {
+                var connector = idx < curriculumData.length - 1
+                    ? '<div style="display:flex;justify-content:center;padding:4px 0"><div style="width:3px;height:32px;background:linear-gradient(to bottom,' + phase.phase_color + ',' + (curriculumData[idx + 1] ? curriculumData[idx + 1].phase_color : phase.phase_color) + ');border-radius:2px"></div></div>'
+                    : '';
+                var itemsHtml = phase.items.map(function (item, i) {
+                    return '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">' +
+                        '<div style="min-width:24px;height:24px;border-radius:50%;background:' + phase.phase_color + '20;color:' + phase.phase_color + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px">' + (i + 1) + '</div>' +
+                        '<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;cursor:pointer;flex:1" onclick="editCurriculumItem(' + phase.id + ',' + i + ',this)" title="클릭하여 수정">' + escapeHtml(item) + '</div>' +
+                        '</div>';
+                }).join('');
+                return '<div style="border:1px solid ' + phase.phase_color + '30;border-radius:var(--radius);padding:20px;background:var(--bg-card);position:relative;border-left:4px solid ' + phase.phase_color + '">' +
+                    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +
+                    '<div style="background:' + phase.phase_color + ';color:#000;font-weight:800;font-size:12px;padding:4px 12px;border-radius:20px;letter-spacing:0.5px">' + escapeHtml(phase.phase_title) + '</div>' +
+                    '<div style="font-size:15px;font-weight:700;color:var(--text-primary);cursor:pointer;flex:1" onclick="editPhaseSubtitle(' + phase.id + ',this)" title="클릭하여 수정">' + escapeHtml(phase.phase_subtitle) + '</div>' +
+                    '</div>' +
+                    '<div style="padding-left:4px">' + itemsHtml + '</div>' +
+                    '</div>' + connector;
+            }).join('');
+        }
+
+        function editPhaseSubtitle(phaseId, el) {
+            var current = el.textContent;
+            var input = document.createElement('input');
+            input.className = 'form-input';
+            input.value = current;
+            input.style.fontSize = '15px';
+            input.style.fontWeight = '700';
+            input.style.padding = '4px 8px';
+            el.replaceWith(input);
+            input.focus();
+            input.select();
+            var save = async function () {
+                var val = input.value.trim();
+                if (val && val !== current) {
+                    await api('PUT', '/api/curriculum/' + phaseId, { phase_subtitle: val });
+                    var p = curriculumData.find(function (x) { return x.id === phaseId; });
+                    if (p) p.phase_subtitle = val;
+                }
+                renderCurriculum();
+            };
+            input.onblur = save;
+            input.onkeydown = function (e) { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderCurriculum(); };
+        }
+
+        function editCurriculumItem(phaseId, itemIdx, el) {
+            var phase = curriculumData.find(function (x) { return x.id === phaseId; });
+            if (!phase) return;
+            var current = phase.items[itemIdx];
+            var input = document.createElement('textarea');
+            input.className = 'form-input';
+            input.value = current;
+            input.style.fontSize = '13px';
+            input.style.padding = '6px 8px';
+            input.style.minHeight = '50px';
+            input.style.resize = 'vertical';
+            el.replaceWith(input);
+            input.focus();
+            var save = async function () {
+                var val = input.value.trim();
+                if (val && val !== current) {
+                    phase.items[itemIdx] = val;
+                    await api('PUT', '/api/curriculum/' + phaseId, { items: phase.items });
+                }
+                renderCurriculum();
+            };
+            input.onblur = save;
+            input.onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); } if (e.key === 'Escape') renderCurriculum(); };
         }
 
         // ══════════════════════════════════════════════
