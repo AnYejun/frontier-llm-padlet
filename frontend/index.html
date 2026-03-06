@@ -1210,15 +1210,37 @@
         </div>
     </div>
 
-    <!-- Curriculum Modal -->
+    <!-- Curriculum / Graph Modal -->
     <div class="modal-overlay" id="curriculumModal">
-        <div class="modal" style="max-width:900px">
-            <div class="modal-header">
-                <h3>📊 Frontier LLM 커리큐럼 로드맵</h3>
-                <button class="modal-close" onclick="closeModal('curriculumModal')">✕</button>
+        <div class="modal" style="max-width:1100px;height:85vh;display:flex;flex-direction:column">
+            <div class="modal-header" style="flex-shrink:0">
+                <h3>📊 Frontier LLM Knowledge Graph</h3>
+                <div style="display:flex;gap:8px;align-items:center">
+                    <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
+                        <span style="width:10px;height:10px;border-radius:50%;background:#39ff14"></span>Phase 1
+                    </span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
+                        <span style="width:10px;height:10px;border-radius:50%;background:#00e5ff"></span>Phase 2
+                    </span>
+                    <span style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text-muted)">
+                        <span style="width:10px;height:10px;border-radius:50%;background:#ff6e40"></span>Phase 3
+                    </span>
+                    <button class="modal-close" onclick="closeModal('curriculumModal')">✕</button>
+                </div>
             </div>
-            <div class="modal-body" style="padding:24px">
-                <div id="curriculumContainer" style="display:flex;flex-direction:column;gap:0"></div>
+            <div class="modal-body"
+                style="flex:1;padding:0;position:relative;overflow:hidden;background:var(--bg-primary)">
+                <svg id="graphSvg"
+                    style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:1"></svg>
+                <div id="graphContainer" style="position:absolute;top:0;left:0;width:100%;height:100%;z-index:2"></div>
+                <!-- Node detail tooltip -->
+                <div id="graphTooltip"
+                    style="display:none;position:absolute;z-index:10;background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-sm);padding:12px 16px;max-width:300px;pointer-events:none;box-shadow:var(--shadow)">
+                    <div id="tooltipTitle"
+                        style="font-weight:700;font-size:14px;color:var(--text-primary);margin-bottom:6px"></div>
+                    <div id="tooltipDesc" style="font-size:12px;color:var(--text-secondary);line-height:1.5"></div>
+                    <div id="tooltipCategory" style="font-size:10px;color:var(--text-muted);margin-top:6px"></div>
+                </div>
             </div>
         </div>
     </div>
@@ -1586,91 +1608,160 @@
         }
 
         // ══════════════════════════════════════════════
-        //  CURRICULUM ROADMAP
+        //  KNOWLEDGE GRAPH
         // ══════════════════════════════════════════════
-        var curriculumData = [];
+        var graphData = { nodes: [], edges: [] };
+        var graphDragging = null;
+        var graphOffset = { x: 0, y: 0 };
 
         async function openCurriculum() {
             try {
-                curriculumData = await api('GET', '/api/curriculum');
-            } catch (e) { curriculumData = []; }
-            renderCurriculum();
+                graphData = await api('GET', '/api/graph');
+            } catch (e) { graphData = { nodes: [], edges: [] }; }
             openModal('curriculumModal');
+            setTimeout(renderGraph, 50);
         }
 
-        function renderCurriculum() {
-            var container = document.getElementById('curriculumContainer');
-            if (!curriculumData.length) {
-                container.innerHTML = '<p style="color:var(--text-muted)">커리큘럼이 없습니다.</p>';
-                return;
-            }
-            container.innerHTML = curriculumData.map(function (phase, idx) {
-                var connector = idx < curriculumData.length - 1
-                    ? '<div style="display:flex;justify-content:center;padding:4px 0"><div style="width:3px;height:32px;background:linear-gradient(to bottom,' + phase.phase_color + ',' + (curriculumData[idx + 1] ? curriculumData[idx + 1].phase_color : phase.phase_color) + ');border-radius:2px"></div></div>'
-                    : '';
-                var itemsHtml = phase.items.map(function (item, i) {
-                    return '<div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">' +
-                        '<div style="min-width:24px;height:24px;border-radius:50%;background:' + phase.phase_color + '20;color:' + phase.phase_color + ';display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;margin-top:1px">' + (i + 1) + '</div>' +
-                        '<div style="font-size:13px;color:var(--text-secondary);line-height:1.5;cursor:pointer;flex:1" onclick="editCurriculumItem(' + phase.id + ',' + i + ',this)" title="클릭하여 수정">' + escapeHtml(item) + '</div>' +
-                        '</div>';
-                }).join('');
-                return '<div style="border:1px solid ' + phase.phase_color + '30;border-radius:var(--radius);padding:20px;background:var(--bg-card);position:relative;border-left:4px solid ' + phase.phase_color + '">' +
-                    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">' +
-                    '<div style="background:' + phase.phase_color + ';color:#000;font-weight:800;font-size:12px;padding:4px 12px;border-radius:20px;letter-spacing:0.5px">' + escapeHtml(phase.phase_title) + '</div>' +
-                    '<div style="font-size:15px;font-weight:700;color:var(--text-primary);cursor:pointer;flex:1" onclick="editPhaseSubtitle(' + phase.id + ',this)" title="클릭하여 수정">' + escapeHtml(phase.phase_subtitle) + '</div>' +
-                    '</div>' +
-                    '<div style="padding-left:4px">' + itemsHtml + '</div>' +
-                    '</div>' + connector;
-            }).join('');
-        }
+        function renderGraph() {
+            var container = document.getElementById('graphContainer');
+            var svg = document.getElementById('graphSvg');
+            container.innerHTML = '';
+            svg.innerHTML = '';
+            if (!graphData.nodes.length) return;
 
-        function editPhaseSubtitle(phaseId, el) {
-            var current = el.textContent;
-            var input = document.createElement('input');
-            input.className = 'form-input';
-            input.value = current;
-            input.style.fontSize = '15px';
-            input.style.fontWeight = '700';
-            input.style.padding = '4px 8px';
-            el.replaceWith(input);
-            input.focus();
-            input.select();
-            var save = async function () {
-                var val = input.value.trim();
-                if (val && val !== current) {
-                    await api('PUT', '/api/curriculum/' + phaseId, { phase_subtitle: val });
-                    var p = curriculumData.find(function (x) { return x.id === phaseId; });
-                    if (p) p.phase_subtitle = val;
-                }
-                renderCurriculum();
+            // Calculate scale based on container size
+            var rect = container.getBoundingClientRect();
+            var maxX = Math.max.apply(null, graphData.nodes.map(function (n) { return n.x; })) + 100;
+            var maxY = Math.max.apply(null, graphData.nodes.map(function (n) { return n.y; })) + 50;
+            var scaleX = (rect.width - 140) / maxX;
+            var scaleY = (rect.height - 60) / maxY;
+            var scale = Math.min(scaleX, scaleY, 1);
+            var padX = (rect.width - maxX * scale) / 2;
+            var padY = 30;
+
+            // Create node map for edge drawing
+            var nodeMap = {};
+            graphData.nodes.forEach(function (n) {
+                nodeMap[n.id] = { x: n.x * scale + padX, y: n.y * scale + padY, color: n.color };
+            });
+
+            // Draw edges as SVG Bezier curves
+            graphData.edges.forEach(function (edge) {
+                var src = nodeMap[edge.source_id];
+                var tgt = nodeMap[edge.target_id];
+                if (!src || !tgt) return;
+                var sx = src.x + 60, sy = src.y + 16;
+                var tx = tgt.x + 60, ty = tgt.y + 16;
+                var my = (sy + ty) / 2;
+                var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', 'M' + sx + ',' + sy + ' C' + sx + ',' + my + ' ' + tx + ',' + my + ' ' + tx + ',' + ty);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', src.color + '40');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('stroke-dasharray', '6,4');
+                path.id = 'edge-' + edge.source_id + '-' + edge.target_id;
+                svg.appendChild(path);
+            });
+
+            // Draw nodes
+            graphData.nodes.forEach(function (node) {
+                var pos = nodeMap[node.id];
+                var div = document.createElement('div');
+                div.style.cssText = 'position:absolute;left:' + pos.x + 'px;top:' + pos.y + 'px;' +
+                    'background:var(--bg-card);border:2px solid ' + node.color + '50;border-radius:10px;' +
+                    'padding:6px 14px;cursor:grab;user-select:none;white-space:nowrap;' +
+                    'font-size:11px;font-weight:600;color:var(--text-primary);' +
+                    'box-shadow:0 2px 10px ' + node.color + '15;transition:box-shadow 0.2s,transform 0.2s;' +
+                    'max-width:150px;overflow:hidden;text-overflow:ellipsis';
+                div.textContent = node.label;
+                div.dataset.nodeId = node.id;
+
+                // Hover effects
+                div.onmouseenter = function (e) {
+                    div.style.boxShadow = '0 0 20px ' + node.color + '40';
+                    div.style.transform = 'scale(1.08)';
+                    div.style.zIndex = '5';
+                    var tooltip = document.getElementById('graphTooltip');
+                    tooltip.style.display = 'block';
+                    document.getElementById('tooltipTitle').textContent = node.label;
+                    document.getElementById('tooltipTitle').style.color = node.color;
+                    document.getElementById('tooltipDesc').textContent = node.description;
+                    document.getElementById('tooltipCategory').textContent = node.category;
+                    var r = container.getBoundingClientRect();
+                    tooltip.style.left = Math.min(pos.x + 20, r.width - 320) + 'px';
+                    tooltip.style.top = (pos.y + 42) + 'px';
+                };
+                div.onmouseleave = function () {
+                    div.style.boxShadow = '0 2px 10px ' + node.color + '15';
+                    div.style.transform = 'scale(1)';
+                    div.style.zIndex = '2';
+                    document.getElementById('graphTooltip').style.display = 'none';
+                };
+
+                // Drag
+                div.onmousedown = function (e) {
+                    if (e.button !== 0) return;
+                    e.preventDefault();
+                    graphDragging = node;
+                    graphOffset.x = e.clientX - pos.x;
+                    graphOffset.y = e.clientY - pos.y;
+                    div.style.cursor = 'grabbing';
+                    document.getElementById('graphTooltip').style.display = 'none';
+                };
+
+                container.appendChild(div);
+            });
+
+            // Global drag handler
+            container.onmousemove = function (e) {
+                if (!graphDragging) return;
+                var rect = container.getBoundingClientRect();
+                var nx = e.clientX - graphOffset.x;
+                var ny = e.clientY - graphOffset.y;
+                // Update visual position
+                var el = container.querySelector('[data-node-id="' + graphDragging.id + '"]');
+                if (el) { el.style.left = nx + 'px'; el.style.top = ny + 'px'; }
+                // Update nodeMap and redraw edges
+                var nodeMap2 = {};
+                graphData.nodes.forEach(function (n) {
+                    if (n.id === graphDragging.id) {
+                        nodeMap2[n.id] = { x: nx, y: ny, color: n.color };
+                    } else {
+                        var existing = container.querySelector('[data-node-id="' + n.id + '"]');
+                        if (existing) nodeMap2[n.id] = { x: parseFloat(existing.style.left), y: parseFloat(existing.style.top), color: n.color };
+                    }
+                });
+                graphData.edges.forEach(function (edge) {
+                    var src = nodeMap2[edge.source_id];
+                    var tgt = nodeMap2[edge.target_id];
+                    if (!src || !tgt) return;
+                    var path = document.getElementById('edge-' + edge.source_id + '-' + edge.target_id);
+                    if (path) {
+                        var sx = src.x + 60, sy = src.y + 16, tx = tgt.x + 60, ty = tgt.y + 16;
+                        var my = (sy + ty) / 2;
+                        path.setAttribute('d', 'M' + sx + ',' + sy + ' C' + sx + ',' + my + ' ' + tx + ',' + my + ' ' + tx + ',' + ty);
+                    }
+                });
             };
-            input.onblur = save;
-            input.onkeydown = function (e) { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderCurriculum(); };
-        }
 
-        function editCurriculumItem(phaseId, itemIdx, el) {
-            var phase = curriculumData.find(function (x) { return x.id === phaseId; });
-            if (!phase) return;
-            var current = phase.items[itemIdx];
-            var input = document.createElement('textarea');
-            input.className = 'form-input';
-            input.value = current;
-            input.style.fontSize = '13px';
-            input.style.padding = '6px 8px';
-            input.style.minHeight = '50px';
-            input.style.resize = 'vertical';
-            el.replaceWith(input);
-            input.focus();
-            var save = async function () {
-                var val = input.value.trim();
-                if (val && val !== current) {
-                    phase.items[itemIdx] = val;
-                    await api('PUT', '/api/curriculum/' + phaseId, { items: phase.items });
+            container.onmouseup = function () {
+                if (graphDragging) {
+                    var el = container.querySelector('[data-node-id="' + graphDragging.id + '"]');
+                    if (el) {
+                        el.style.cursor = 'grab';
+                        // Save position (reverse scale)
+                        var nx = parseFloat(el.style.left);
+                        var ny = parseFloat(el.style.top);
+                        var origX = (nx - padX) / scale;
+                        var origY = (ny - padY) / scale;
+                        graphDragging.x = origX;
+                        graphDragging.y = origY;
+                        api('PUT', '/api/graph/nodes/' + graphDragging.id, { x: origX, y: origY });
+                    }
+                    graphDragging = null;
                 }
-                renderCurriculum();
             };
-            input.onblur = save;
-            input.onkeydown = function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); save(); } if (e.key === 'Escape') renderCurriculum(); };
+            container.onmouseleave = container.onmouseup;
         }
 
         // ══════════════════════════════════════════════

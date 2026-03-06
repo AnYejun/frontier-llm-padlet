@@ -160,6 +160,20 @@ CREATE TABLE IF NOT EXISTS curriculum (
     items TEXT NOT NULL DEFAULT '[]',
     sort_order INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS graph_nodes (
+    id SERIAL PRIMARY KEY,
+    label TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '#39ff14',
+    x REAL NOT NULL DEFAULT 0,
+    y REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS graph_edges (
+    id SERIAL PRIMARY KEY,
+    source_id INTEGER NOT NULL,
+    target_id INTEGER NOT NULL
+);
 """
 
 SQLITE_SCHEMA = """
@@ -211,6 +225,20 @@ CREATE TABLE IF NOT EXISTS curriculum (
     phase_color TEXT NOT NULL DEFAULT '#39ff14',
     items TEXT NOT NULL DEFAULT '[]',
     sort_order INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS graph_nodes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    label TEXT NOT NULL,
+    description TEXT NOT NULL DEFAULT '',
+    category TEXT NOT NULL DEFAULT '',
+    color TEXT NOT NULL DEFAULT '#39ff14',
+    x REAL NOT NULL DEFAULT 0,
+    y REAL NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS graph_edges (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    source_id INTEGER NOT NULL,
+    target_id INTEGER NOT NULL
 );
 """
 
@@ -318,6 +346,38 @@ def init_db():
             for phase, title, subtitle, color, items, sort in phases:
                 _exec(db, "INSERT INTO curriculum(phase, phase_title, phase_subtitle, phase_color, items, sort_order) VALUES(?,?,?,?,?,?)",
                       (phase, title, subtitle, color, items, sort))
+
+        # Seed graph nodes
+        cur = _exec(db, "SELECT COUNT(*) FROM graph_nodes")
+        count = cur.fetchone()[0]
+        if count == 0:
+            nodes = [
+                ('Neural Network / UAT', '다층 신경망이 임의의 함수를 근사할 수 있음을 증명하는 범용 근사 정리', 'Phase 1', '#39ff14', 100, 60),
+                ('Manifold Hypothesis', '고차원 데이터가 저차원 다양체 위에 분포한다는 가설. 차원의 저주 극복', 'Phase 1', '#39ff14', 350, 60),
+                ('Transformer / Attention', 'Self-Attention 메커니즘 기반의 시퀀스 모델. LLM의 핵심 아키텍처', 'Phase 1', '#00e676', 600, 60),
+                ('MoE (Mixture of Experts)', '여러 전문가 네트워크 중 일부만 활성화하여 효율적으로 스케일링', 'Phase 1', '#00e676', 200, 180),
+                ('DeepSeek-V3 / R1', '최신 MoE 아키텍처. 추론 특화 모델로 지능의 한계치를 탐구', 'Phase 1', '#39ff14', 500, 180),
+                ('SAE (Sparse Autoencoder)', 'LLM 내부 Feature를 분해하여 해석 가능한 표현을 추출', 'Phase 1', '#76ff03', 800, 120),
+                ('Mechanistic Interpretability', '모델 내부 뉴런/회로의 작동 원리를 역공학적으로 분석', 'Phase 1', '#76ff03', 750, 240),
+                ('RAG / GraphRAG', '외부 지식을 검색하여 LLM에 주입. 그래프 기반 확장', 'Phase 2', '#00e5ff', 100, 350),
+                ('Prompt Engineering', '효과적인 프롬프트 설계를 통한 LLM 성능 극대화', 'Phase 2', '#00e5ff', 380, 350),
+                ('MCP (Model Context Protocol)', 'LLM이 외부 도구/데이터와 상호작용하는 표준 프로토콜', 'Phase 2', '#00bcd4', 650, 350),
+                ('Function Calling / Tool Use', 'LLM이 API를 호출하고 도구를 사용하여 액션 수행', 'Phase 2', '#00bcd4', 450, 470),
+                ('Agent Pipeline', '계획-실행-검증 루프를 갖춘 에이전트 파이프라인 설계', 'Phase 2', '#00e5ff', 200, 470),
+                ('Autonomous Agent', 'Antigravity, Claude Code 등을 활용한 자율형 에이전트 개발', 'Phase 3', '#ff6e40', 350, 590),
+                ('Real-world Application', '실제 문제 해결 프로젝트. 공학적 완성도와 철학적 통찰', 'Phase 3', '#ff6e40', 650, 590),
+                ('Research Paper / 논문', '산업과 학계에 영향력을 발휘할 수 있는 연구 결과물', 'Phase 3', '#ff9100', 500, 680),
+            ]
+            for label, desc, cat, color, x, y in nodes:
+                _exec(db, "INSERT INTO graph_nodes(label, description, category, color, x, y) VALUES(?,?,?,?,?,?)",
+                      (label, desc, cat, color, x, y))
+            edges = [
+                (1,2),(2,3),(3,4),(3,5),(4,5),(3,6),(6,7),
+                (3,8),(5,9),(7,10),(8,9),(9,10),(10,11),
+                (9,12),(11,12),(12,13),(11,13),(13,14),(13,15),(14,15),
+            ]
+            for src, tgt in edges:
+                _exec(db, "INSERT INTO graph_edges(source_id, target_id) VALUES(?,?)", (src, tgt))
 
 # ── Pydantic Models ──────────────────────────────
 class MemberRename(BaseModel):
@@ -547,6 +607,29 @@ def update_curriculum(phase_id: int, body: CurriculumUpdate):
             _exec(db, "UPDATE curriculum SET phase_color=? WHERE id=?", (body.phase_color, phase_id))
         if body.items is not None:
             _exec(db, "UPDATE curriculum SET items=? WHERE id=?", (json.dumps(body.items, ensure_ascii=False), phase_id))
+        return {"ok": True}
+
+
+# ── API: Graph ───────────────────────────────────
+@app.get("/api/graph")
+def get_graph():
+    with get_db() as db:
+        cur = _exec(db, "SELECT * FROM graph_nodes ORDER BY id")
+        nodes = _fetchall(cur)
+        cur = _exec(db, "SELECT * FROM graph_edges ORDER BY id")
+        edges = _fetchall(cur)
+        return {"nodes": nodes, "edges": edges}
+
+
+@app.put("/api/graph/nodes/{node_id}")
+def update_graph_node(node_id: int, body: dict):
+    with get_db() as db:
+        if 'label' in body:
+            _exec(db, "UPDATE graph_nodes SET label=? WHERE id=?", (body['label'], node_id))
+        if 'description' in body:
+            _exec(db, "UPDATE graph_nodes SET description=? WHERE id=?", (body['description'], node_id))
+        if 'x' in body and 'y' in body:
+            _exec(db, "UPDATE graph_nodes SET x=?, y=? WHERE id=?", (body['x'], body['y'], node_id))
         return {"ok": True}
 
 
