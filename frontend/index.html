@@ -1076,7 +1076,7 @@
             <div class="logo-section">
                 <div class="logo-icon">😊</div>
                 <div class="logo-text">
-                    <h1>Frontier LLM</h1>
+                    <h1 style="font-size:22px">Frontier LLM Let's GO</h1>
                 </div>
             </div>
             <div class="header-actions">
@@ -1151,9 +1151,10 @@
             <div class="modal-body">
                 <div class="form-group">
                     <label>새 클래스 추가</label>
-                    <div style="display:flex;gap:8px">
-                        <input class="form-input" id="newClassName" placeholder="예: Week 2 – Scaling Laws">
-                        <button class="btn btn-primary" onclick="addClass()">추가</button>
+                    <div style="display:flex;gap:8px;align-items:center">
+                        <input class="form-input" id="newClassName" placeholder="예: Week 2 – Scaling Laws"
+                            style="flex:1" onkeydown="if(event.key==='Enter')addClass()">
+                        <button class="btn btn-primary" onclick="addClass()" style="white-space:nowrap">추가</button>
                     </div>
                 </div>
                 <div class="form-group">
