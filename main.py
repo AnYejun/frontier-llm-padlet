@@ -242,7 +242,7 @@ def init_db():
                 _exec(db, "INSERT INTO sections(week_id, name, sort_order) VALUES(?,?,?)", (week_id, sec, i))
 
             # Seed Week 1 posts
-            now = datetime.utcnow().isoformat()
+            now = datetime.utcnow().isoformat() + 'Z'
             seed_posts = [
                 ('📌 핵심 정리', 'UAT (Universal Approximation Theorem)',
                  '다층 신경망구조(MLP)에 의해 충분히 많은 파라미터만 있다면 얼마든지 복잡한 함수도 근사가 가능함이 수학적으로 밝혀졌다.\n\n우리 실세계에서 마주하는 문제해결의 영역은 대부분 Input과 Output을 가지는 함수의 형태를 띄고 있다.\n\n하지만 과연 이러한 함수를 근사하는 방법은 신경망이 유일한 방법인 것일까? 만약 유일한 방법이 아니라면 우리는 왜 신경망을 채택하고 사용하는 것일까?',
@@ -414,7 +414,7 @@ def delete_week(week_id: int):
 @app.post("/api/posts")
 def create_post(body: PostCreate):
     with get_db() as db:
-        now = datetime.utcnow().isoformat()
+        now = datetime.utcnow().isoformat() + 'Z'
         if USE_PG:
             c = db.cursor()
             c.execute("""
@@ -452,7 +452,7 @@ def add_reaction(post_id: int, body: ReactionCreate):
 @app.post("/api/posts/{post_id}/comments")
 def add_comment(post_id: int, body: CommentCreate):
     with get_db() as db:
-        now = datetime.utcnow().isoformat()
+        now = datetime.utcnow().isoformat() + 'Z'
         if USE_PG:
             c = db.cursor()
             c.execute("INSERT INTO comments(post_id, member_id, text, created_at) VALUES(%s,%s,%s,%s) RETURNING id",
