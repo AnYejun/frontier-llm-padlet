@@ -1074,15 +1074,13 @@
     <header class="header">
         <div class="header-inner">
             <div class="logo-section">
-                <div class="logo-icon">🚀</div>
+                <div class="logo-icon">😊</div>
                 <div class="logo-text">
                     <h1>Frontier LLM</h1>
-                    <p>COLLABORATIVE SESSION BOARD</p>
                 </div>
             </div>
             <div class="header-actions">
                 <button class="btn btn-ghost" onclick="openWeekSettings()">⚙️ 주차 관리</button>
-                <button class="btn btn-ghost" onclick="exportData()">📥 내보내기</button>
                 <button class="btn btn-primary" onclick="openNewPost()">✏️ 새 글 작성</button>
                 <div class="user-switcher">
                     <button class="user-current" id="userCurrentBtn" onclick="toggleUserDropdown()">
@@ -1195,7 +1193,7 @@
         //  CONFIG & STATE
         // ══════════════════════════════════════════════
         const API = '';  // same origin
-        const COLORS = ['#d4a843', '#b8860b', '#8b7355', '#c0c0c0', '#708090', '#a0a0a0', '#daa520', '#4a4a55'];
+        const COLORS = ['#39ff14', '#00e676', '#1b5e20', '#2e7d32', '#4caf50', '#81c784', '#00c853', '#1a1a2e'];
         let members = [];
         let weeks = [];
         let currentWeekIdx = 0;
@@ -1367,7 +1365,7 @@
 
             return '<div class="post-card" style="animation-delay:' + (idx * 0.05) + 's">' +
                 '<button class="post-delete" onclick="event.stopPropagation();deletePost(' + post.id + ')" title="삭제">✕</button>' +
-                '<div class="post-color-bar" style="background:' + (post.color || '#d4a843') + '"></div>' +
+                '<div class="post-color-bar" style="background:' + (post.color || '#39ff14') + '"></div>' +
                 '<div class="post-body">' +
                 '<div class="post-author">' +
                 '<div class="author-avatar" style="background:' + avatarCol + '">' + getInitial(post.author) + '</div>' +
@@ -1556,18 +1554,6 @@
                 showToast('주차가 삭제되었습니다');
             } catch (e) { showToast('오류: ' + e.message); }
         }
-
-        function exportData() {
-            var blob = new Blob([JSON.stringify({ members: members, weeks: weeks }, null, 2)], { type: 'application/json' });
-            var url = URL.createObjectURL(blob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = 'frontier-llm-padlet-' + new Date().toISOString().slice(0, 10) + '.json';
-            a.click();
-            URL.revokeObjectURL(url);
-            showToast('데이터가 다운로드되었습니다 📥');
-        }
-
         // ══════════════════════════════════════════════
         //  UTILITIES
         // ══════════════════════════════════════════════
