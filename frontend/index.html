@@ -37,6 +37,7 @@
             --delete-bg: rgba(255, 60, 60, 0.15);
             --delete-border: rgba(255, 60, 60, 0.2);
             --delete-hover: rgba(255, 60, 60, 0.35);
+            --header-bg: rgba(10, 10, 15, 0.94);
         }
 
         [data-theme="light"] {
@@ -61,6 +62,7 @@
             --delete-bg: rgba(255, 60, 60, 0.08);
             --delete-border: rgba(255, 60, 60, 0.15);
             --delete-hover: rgba(255, 60, 60, 0.2);
+            --header-bg: rgba(255, 255, 255, 0.92);
         }
 
         * {
@@ -111,7 +113,7 @@
             z-index: 100;
             backdrop-filter: blur(20px);
             -webkit-backdrop-filter: blur(20px);
-            background: rgba(10, 10, 15, 0.94);
+            background: var(--header-bg);
             border-bottom: 1px solid var(--glass-border);
             padding: 0 32px;
         }
@@ -1675,7 +1677,7 @@
         }
         // Init theme on load
         (function () {
-            var saved = localStorage.getItem('frontier_theme') || 'dark';
+            var saved = localStorage.getItem('frontier_theme') || 'light';
             document.documentElement.setAttribute('data-theme', saved);
             var btn = document.getElementById('themeToggle');
             if (btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
