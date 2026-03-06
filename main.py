@@ -102,20 +102,6 @@ def init_db():
         if db.execute("SELECT COUNT(*) FROM weeks").fetchone()[0] == 0:
             weeks = [
                 ('Week 1 – Introduction to LLM', 'LLM 기초 개념과 Transformer 아키텍처 리뷰', 0),
-                ('Week 2 – Scaling Laws & Pretraining', 'Chinchilla, Scaling Laws, 대규모 사전학습 기법', 1),
-                ('Week 3 – RLHF & Alignment', 'RLHF, DPO, Constitutional AI 등 정렬 기법', 2),
-                ('Week 4 – Prompting & Reasoning', 'Chain-of-Thought, Prompt Engineering, Reasoning 능력', 3),
-                ('Week 5 – RAG & Retrieval', 'Retrieval-Augmented Generation, 벡터 DB, 검색 최적화', 4),
-                ('Week 6 – Fine-tuning', 'LoRA, QLoRA, PEFT, 효율적 파인튜닝 기법', 5),
-                ('Week 7 – Multimodal LLM', 'Vision-Language Models, GPT-4V, LLaVA', 6),
-                ('Week 8 – Agents & Tool Use', 'LLM Agent 설계, Function Calling, Tool Use', 7),
-                ('Week 9 – Evaluation & Benchmarks', 'LLM 평가 지표, MMLU, HumanEval, 벤치마크 분석', 8),
-                ('Week 10 – Efficiency & Deployment', '양자화, Distillation, 추론 최적화', 9),
-                ('Week 11 – Safety & Ethics', 'AI 안전성, 편향, 레드팀, Guardrails', 10),
-                ('Week 12 – Open Source LLMs', 'LLaMA, Mistral, Gemma 등 오픈소스 모델 분석', 11),
-                ('Week 13 – Long Context', 'Long Context Modeling, RoPE, Streaming', 12),
-                ('Week 14 – Advanced Architectures', 'MoE, SSM, Mamba, 차세대 아키텍처', 13),
-                ('Week 15 – Final Project', '최종 프로젝트 발표 및 토론', 14),
             ]
             for title, desc, order in weeks:
                 db.execute("INSERT INTO weeks(title, description, sort_order) VALUES(?,?,?)", (title, desc, order))

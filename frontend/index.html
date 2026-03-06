@@ -1080,7 +1080,7 @@
                 </div>
             </div>
             <div class="header-actions">
-                <button class="btn btn-ghost" onclick="openWeekSettings()">⚙️ 주차 관리</button>
+                <button class="btn btn-ghost" onclick="openClassSettings()">📚 클래스 관리</button>
                 <button class="btn btn-primary" onclick="openNewPost()">✏️ 새 글 작성</button>
                 <div class="user-switcher">
                     <button class="user-current" id="userCurrentBtn" onclick="toggleUserDropdown()">
@@ -1141,25 +1141,27 @@
         </div>
     </div>
 
-    <!-- Week Settings Modal -->
-    <div class="modal-overlay" id="weekSettingsModal">
+    <!-- Class Settings Modal -->
+    <div class="modal-overlay" id="classSettingsModal">
         <div class="modal">
             <div class="modal-header">
-                <h3>⚙️ 주차 관리</h3>
-                <button class="modal-close" onclick="closeModal('weekSettingsModal')">✕</button>
+                <h3>📚 클래스 관리</h3>
+                <button class="modal-close" onclick="closeModal('classSettingsModal')">✕</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
-                    <label>새 주차 추가</label>
+                    <label>새 클래스 추가</label>
                     <div style="display:flex;gap:8px">
-                        <input class="form-input" id="newWeekTitle" placeholder="예: Week 5 – RAG">
-                        <button class="btn btn-primary" onclick="addWeek()">추가</button>
+                        <input class="form-input" id="newClassName" placeholder="예: Week 2 – Scaling Laws">
+                        <button class="btn btn-primary" onclick="addClass()">추가</button>
                     </div>
                 </div>
+                <div class="form-group">
+                    <label>클래스 목록</label>
+                    <div id="classListContainer" style="display:flex;flex-direction:column;gap:8px"></div>
+                </div>
                 <div class="modal-actions">
-                    <button class="btn btn-ghost" onclick="deleteCurrentWeek()"
-                        style="margin-right:auto;color:var(--accent-1)">🗑 현재 주차 삭제</button>
-                    <button class="btn btn-ghost" onclick="closeModal('weekSettingsModal')">닫기</button>
+                    <button class="btn btn-ghost" onclick="closeModal('classSettingsModal')">닫기</button>
                 </div>
             </div>
         </div>
@@ -1527,31 +1529,101 @@
         }
 
         // ══════════════════════════════════════════════
-        //  WEEK MANAGEMENT
+        //  CLASS MANAGEMENT
         // ══════════════════════════════════════════════
-        function openWeekSettings() { openModal('weekSettingsModal'); }
+        function openClassSettings() {
+            renderClassList();
+            openModal('classSettingsModal');
+        }
 
-        async function addWeek() {
-            var input = document.getElementById('newWeekTitle');
+        function renderClassList() {
+            var container = document.getElementById('classListContainer');
+            if (weeks.length === 0) {
+                container.innerHTML = '<p style="color:var(--text-muted);font-size:13px">클래스가 없습니다. 위에서 추가하세요.</p>';
+                return;
+            }
+            container.innerHTML = weeks.map(function (w, i) {
+                return '<div style="display:flex;align-items:center;gap:8px;padding:12px;background:var(--bg-card);border-radius:var(--radius-sm);border:1px solid var(--glass-border)">' +
+                    '<div style="flex:1;min-width:0">' +
+                    '<div style="font-size:14px;font-weight:600;color:var(--text-primary);margin-bottom:4px;cursor:pointer" ' +
+                    'onclick="editClassTitle(' + w.id + ',this)" title="클릭하여 제목 수정">' + escapeHtml(w.title) + '</div>' +
+                    '<div style="font-size:12px;color:var(--text-secondary);cursor:pointer" ' +
+                    'onclick="editClassDesc(' + w.id + ',this)" title="클릭하여 설명 수정">' + (w.description || '설명 없음 (클릭하여 추가)') + '</div>' +
+                    '</div>' +
+                    '<span style="font-size:11px;color:var(--text-muted);white-space:nowrap">' + w.posts.length + '개 글</span>' +
+                    '<button class="btn btn-ghost" style="padding:6px 10px;font-size:12px;color:#ff6b6b;border-color:rgba(255,60,60,0.2)" onclick="deleteClass(' + w.id + ')">🗑</button>' +
+                    '</div>';
+            }).join('');
+        }
+
+        function editClassTitle(weekId, el) {
+            var current = el.textContent;
+            var input = document.createElement('input');
+            input.className = 'form-input';
+            input.value = current;
+            input.style.padding = '6px 10px';
+            input.style.fontSize = '14px';
+            el.replaceWith(input);
+            input.focus();
+            input.select();
+            var save = async function () {
+                var val = input.value.trim();
+                if (val && val !== current) {
+                    await api('PUT', '/api/weeks/' + weekId, { title: val });
+                    await loadData();
+                    showToast('클래스 제목이 변경되었습니다');
+                }
+                renderClassList();
+            };
+            input.onblur = save;
+            input.onkeydown = function (e) { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderClassList(); };
+        }
+
+        function editClassDesc(weekId, el) {
+            var current = el.textContent === '설명 없음 (클릭하여 추가)' ? '' : el.textContent;
+            var input = document.createElement('input');
+            input.className = 'form-input';
+            input.value = current;
+            input.style.padding = '4px 10px';
+            input.style.fontSize = '12px';
+            input.placeholder = '설명을 입력하세요...';
+            el.replaceWith(input);
+            input.focus();
+            var save = async function () {
+                var val = input.value.trim();
+                if (val !== current) {
+                    await api('PUT', '/api/weeks/' + weekId, { description: val });
+                    await loadData();
+                }
+                renderClassList();
+            };
+            input.onblur = save;
+            input.onkeydown = function (e) { if (e.key === 'Enter') save(); if (e.key === 'Escape') renderClassList(); };
+        }
+
+        async function addClass() {
+            var input = document.getElementById('newClassName');
             var title = input.value.trim();
             if (!title) return;
             try {
                 await api('POST', '/api/weeks', { title: title });
                 input.value = '';
                 await loadData();
-                showToast('새 주차가 추가되었습니다!');
+                renderClassList();
+                showToast('새 클래스가 추가되었습니다! 📚');
             } catch (e) { showToast('오류: ' + e.message); }
         }
 
-        async function deleteCurrentWeek() {
-            var w = currentWeek();
-            if (!confirm('"' + w.title + '"를 삭제하시겠습니까?')) return;
+        async function deleteClass(weekId) {
+            var w = weeks.find(function (x) { return x.id === weekId; });
+            if (!w) return;
+            if (!confirm('"' + w.title + '" 클래스를 삭제하시겠습니까?\n포함된 모든 글과 댓글이 삭제됩니다.')) return;
             try {
-                await api('DELETE', '/api/weeks/' + w.id);
-                currentWeekIdx = 0;
-                closeModal('weekSettingsModal');
+                await api('DELETE', '/api/weeks/' + weekId);
+                if (currentWeekIdx >= weeks.length - 1) currentWeekIdx = Math.max(0, weeks.length - 2);
                 await loadData();
-                showToast('주차가 삭제되었습니다');
+                renderClassList();
+                showToast('클래스가 삭제되었습니다');
             } catch (e) { showToast('오류: ' + e.message); }
         }
         // ══════════════════════════════════════════════
